@@ -1,4 +1,4 @@
-import { getJson } from './httpJson';
+import { HttpOptions, getJson } from './httpJson';
 
 /** Everything Resource Service needs from Player Service. */
 export interface PlayerClient {
@@ -16,11 +16,14 @@ export class MockPlayerClient implements PlayerClient {
   }
 }
 
-/** Lab 2: real call to Player Service (GET /players/:id). */
+/** Lab 2: real call to Player Service through the Gateway (GET {PLAYER_SERVICE_URL}/players/:id). */
 export class HttpPlayerClient implements PlayerClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly opts: HttpOptions = {}
+  ) {}
   async playerExists(playerId: string): Promise<boolean> {
-    const player = await getJson(`${this.baseUrl}/players/${encodeURIComponent(playerId)}`, 'Player Service');
+    const player = await getJson(`${this.baseUrl}/players/${encodeURIComponent(playerId)}`, 'Player Service', this.opts);
     return player !== null;
   }
 }

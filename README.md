@@ -23,8 +23,13 @@ Copy `.env.example` to `.env` (`run.sh` does it for you). `.env` is gitignored, 
 | `DATABASE_URL` | - | PostgreSQL connection string (required when `STORAGE=postgres`) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | - | Used by `docker-compose.yml` to create the DB |
 | `POSTGRES_PORT` | 5433 | Host port of the DB container |
-| `PLAYER_CLIENT` / `WORLD_CLIENT` | mock | `mock` (Lab 1) or `http` (Lab 2) |
-| `PLAYER_SERVICE_URL` / `WORLD_SERVICE_URL` | localhost:3000 / 3003 | Used when the client is `http` |
+| `PLAYER_CLIENT` / `WORLD_CLIENT` | mock | `mock` (Lab 1) or `http` (Lab 2, calls go through the Gateway) |
+| `PLAYER_SERVICE_URL` / `WORLD_SERVICE_URL` | http://gateway:8080/player / http://gateway:8080/world | Gateway URLs used when the client is `http`. Never point them at another service's container |
+| `SERVICE_TOKEN` | - | Service JWT sent as `Authorization: Bearer` on calls through the Gateway (secret, never commit) |
+| `OUTGOING_TIMEOUT_MS` | 3000 | Timeout for calls to other services; a slow upstream answers `504 UPSTREAM_TIMEOUT` |
+| `REQUEST_TIMEOUT_MS` | 5000 | A request not answered in time gets `408 REQUEST_TIMEOUT` |
+| `MAX_CONCURRENT_REQUESTS` | 100 | Requests in flight above this get `429 {"error":"TOO_MANY_REQUESTS","message":...}` |
+| `SIMULATED_LATENCY_MS` | 0 | Demo only: delays every request so 408/429 are easy to show (e.g. 300 with `REQUEST_TIMEOUT_MS=100`, `MAX_CONCURRENT_REQUESTS=2`) |
 | `MOCK_PLAYERS` | player-1,player-2,player-3,player-4 | Players the mock Player Service knows |
 
 ## How to run
@@ -42,11 +47,11 @@ On startup the service creates its tables (`db/schema.sql`) and runs the seed (`
 ## Docker
 
 ```bash
-docker build -t <dockerhub-user>/resource-service:1.0.0 .
-docker push <dockerhub-user>/resource-service:1.0.0
+docker build -t <dockerhub-user>/resource-service:2.0.0 .
+docker push <dockerhub-user>/resource-service:2.0.0
 
 # run the public image on a clean machine (in-memory, no DB)
-docker run --rm -p 3001:3001 -e STORAGE=memory <dockerhub-user>/resource-service:1.0.0
+docker run --rm -p 3001:3001 -e STORAGE=memory <dockerhub-user>/resource-service:2.0.0
 ```
 
 The PostgreSQL data lives in the named volume `resource_pgdata`, so it survives `docker compose down` (use `docker compose down -v` to wipe it).
@@ -73,6 +78,8 @@ tests/
 ```
 
 ## Communication contract
+
+**Lab 2.** Communication: **REST only** (no WebSocket/SSE needed). Clients and other services reach this service only through the Gateway (`http://gateway:8080/resource/...`); in the team compose it has no published port. The service does no authorization itself: the Gateway validates the JWT, strips `Authorization` and forwards `X-User-Id`. `/health` is not limited; every other route answers `408` after `REQUEST_TIMEOUT_MS` and `429` above `MAX_CONCURRENT_REQUESTS` requests in flight.
 
 ### Resource Service (port 3001)
 
@@ -120,4 +127,4 @@ Owns resource types, the quantity of every resource per player and per world nod
 | GET | `/actions?playerId=&nodeId=&kind=&limit=` | - | `Action[]`, newest first (limit 1-200, default 50) | 200, 400 |
 | GET | `/actions/:actionId` | - | `Action` | 200, 404 |
 
-**Calls to other services** (behind interfaces, mocked in Lab 1): Player Service `GET /players/:id` (player exists), World Service `GET /nodes/:id` → `{ "id", "resourceTypeId" }` (node exists and which resource it yields).
+**Calls to other services** (behind interfaces, mocked in Lab 1, through the Gateway in Lab 2): Player Service `GET {PLAYER_SERVICE_URL}/players/:id` (player exists), World Service `GET {WORLD_SERVICE_URL}/nodes/:id` → `{ "id", "resourceTypeId" }` (node exists and which resource it yields).
