@@ -1,4 +1,4 @@
-import { getJson } from './httpJson';
+import { HttpOptions, getJson } from './httpJson';
 
 export interface WorldNode {
   id: string;
@@ -28,10 +28,13 @@ export class MockWorldClient implements WorldClient {
   }
 }
 
-/** Lab 2: real call to World Service (GET /nodes/:id). */
+/** Lab 2: real call to World Service through the Gateway (GET {WORLD_SERVICE_URL}/nodes/:id). */
 export class HttpWorldClient implements WorldClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly opts: HttpOptions = {}
+  ) {}
   async getNode(nodeId: string): Promise<WorldNode | null> {
-    return getJson<WorldNode>(`${this.baseUrl}/nodes/${encodeURIComponent(nodeId)}`, 'World Service');
+    return getJson<WorldNode>(`${this.baseUrl}/nodes/${encodeURIComponent(nodeId)}`, 'World Service', this.opts);
   }
 }

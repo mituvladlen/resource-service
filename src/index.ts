@@ -35,12 +35,13 @@ async function main() {
     for (const [nodeId, resourceTypeId, quantity] of nodes) await mem.setNodeStock({ nodeId, resourceTypeId, quantity });
   }
 
-  const players = cfg.playerClient === 'http' ? new HttpPlayerClient(cfg.playerServiceUrl) : new MockPlayerClient(cfg.mockPlayers);
-  const world = cfg.worldClient === 'http' ? new HttpWorldClient(cfg.worldServiceUrl) : new MockWorldClient();
+  const http = { token: cfg.serviceToken, timeoutMs: cfg.outgoingTimeoutMs };
+  const players = cfg.playerClient === 'http' ? new HttpPlayerClient(cfg.playerServiceUrl, http) : new MockPlayerClient(cfg.mockPlayers);
+  const world = cfg.worldClient === 'http' ? new HttpWorldClient(cfg.worldServiceUrl, http) : new MockWorldClient();
 
-  const app = createApp(new ResourceService(repo, players, world));
+  const app = createApp(new ResourceService(repo, players, world), cfg);
   app.listen(cfg.port, () =>
-    console.log(`[resource-service] listening on :${cfg.port} (storage=${cfg.storage}, player=${cfg.playerClient}, world=${cfg.worldClient})`)
+    console.log(`[resource-service] listening on :${cfg.port} (storage=${cfg.storage}, player=${cfg.playerClient}, world=${cfg.worldClient}, timeout=${cfg.requestTimeoutMs}ms, maxConcurrent=${cfg.maxConcurrentRequests})`)
   );
 }
 
